@@ -48,53 +48,264 @@ flask run --reload
 
 The `--reload` flag will detect file changes and restart the server automatically.
 
-## To Do Tasks
 
-These are the files you'd want to edit in the backend:
+---
 
-1. `backend/flaskr/__init__.py`
-2. `backend/test_flaskr.py`
+## Endpoints
 
-One note before you delve into your tasks: for each endpoint, you are expected to define the endpoint and response data. The frontend will be a plentiful resource because it is set up to expect certain endpoints and response data formats already. You should feel free to specify endpoints in your own way; if you do so, make sure to update the frontend or you will get some unexpected behavior.
+### Error Handling
 
-1. Use Flask-CORS to enable cross-domain requests and set response headers.
-2. Create an endpoint to handle `GET` requests for questions, including pagination (every 10 questions). This endpoint should return a list of questions, number of total questions, current category, categories.
-3. Create an endpoint to handle `GET` requests for all available categories.
-4. Create an endpoint to `DELETE` a question using a question `ID`.
-5. Create an endpoint to `POST` a new question, which will require the question and answer text, category, and difficulty score.
-6. Create a `POST` endpoint to get questions based on category.
-7. Create a `POST` endpoint to get questions based on a search term. It should return any questions for whom the search term is a substring of the question.
-8. Create a `POST` endpoint to get questions to play the quiz. This endpoint should take a category and previous question parameters and return a random questions within the given category, if provided, and that is not one of the previous questions.
-9. Create error handlers for all expected errors including 400, 404, 422, and 500.
+Errors are returned as JSON objects in the following format:
+```json
+{
+    "success": False, 
+    "error": 400,
+    "message": "bad request"
+}
+```
+The API will return the following error types when requests fail, the column titles corresponding with where it populates the above json example:
 
-## Documenting your Endpoints
+| **Error** | **Message**             |
+|-----------|-------------------------|
+| 400       | `Bad Request`           |
+| 404       | `Resource Not Found`    |
+| 405       | `Method Not Allowed`    |
+| 422       | `Unprocessable Entity`  |
+| 500       | `Internal Server Error` |
 
-You will need to provide detailed documentation of your API endpoints including the URL, request parameters, and the response body. Use the example below as a reference.
-
-### Documentation Example
-
-`GET '/api/v1.0/categories'`
+### Retrieve categories
+#### `GET '/categories'`
 
 - Fetches a dictionary of categories in which the keys are the ids and the value is the corresponding string of the category
 - Request Arguments: None
-- Returns: An object with a single key, `categories`, that contains an object of `id: category_string` key: value pairs.
+- Returns: A boolean success and an object with a single key, `categories`, that contains an object of `id: category_string` key: value pairs.
+
+##### Sample request
+```json
+curl http://127.0.0.1:5000/categories
+```
+
+##### Sample Response
 
 ```json
 {
-  "1": "Science",
-  "2": "Art",
-  "3": "Geography",
-  "4": "History",
-  "5": "Entertainment",
-  "6": "Sports"
+  "success": True,
+  "categories": {  
+    "1": "Science",
+    "2": "Art",
+    "3": "Geography",
+    "4": "History",
+    "5": "Entertainment",
+    "6": "Sports"
+  }
 }
 ```
+
+### Retrieve questions
+#### `GET '/questions?page=${integer}'`
+
+- Fetches a paginated set of questions, a total number of questions, all categories and current category string.
+- Request Arguments: `page` - integer _(optional)_
+- Returns: An object with boolean success, 10 paginated questions, total questions, object including all categories, and current category string
+
+##### Sample request
+```json
+curl http://127.0.0.1:5000/questions?page=2
+```
+
+##### Sample Response
+
+```json
+{
+  "success": True,
+  "questions": [
+    {
+      "id": 1,
+      "question": "This is a question",
+      "answer": "This is an answer",
+      "difficulty": 5,
+      "category": 2
+    }
+  ],
+  "totalQuestions": 100,
+  "categories": {
+    "1": "Science",
+    "2": "Art",
+    "3": "Geography",
+    "4": "History",
+    "5": "Entertainment",
+    "6": "Sports"
+  },
+  "currentCategory": "History"
+}
+```
+
+---
+
+### Delete a question
+#### `DELETE '/questions/${id}'`
+
+- Deletes a specified question using the id of the question
+- Request Arguments: `id` - integer
+- Returns: Does not need to return anything besides the appropriate HTTP status code and boolean success.
+
+##### Sample request
+```json
+curl -X DELETE \
+  http://127.0.0.1:5000/questions/2
+```
+
+##### Sample Response
+
+```json
+{
+  "success": True
+}
+```
+
+---
+
+### Create a question
+#### `POST '/questions'`
+
+- Sends a post request in order to add a new question
+- Returns: Does not return any new data except boolean success
+
+##### Sample request
+
+```json
+curl -X POST \
+  -h "Content-Type: application/json" \
+  -d '{ \
+    "question": "Heres a new question string", \
+    "answer": "Heres a new answer string", \
+    "difficulty": 1, \
+    "category": 3 \
+  }' \
+  'http://localhost:5000/questions/search'
+```
+
+##### Sample response
+
+```json
+{
+  "success": True
+}
+```
+
+---
+
+### Search questions
+#### `POST '/questions/search'`
+
+- Sends a post request in order to search for a specific question by search term
+- Returns: a boolean success, any array of questions, a number of totalQuestions that met the search term and the current category string
+
+##### Sample request
+
+```json
+curl -X POST \
+  -h "Content-Type: application/json" \
+  -d '{"searchTerm":"this is the term the user is looking for"}' \
+  'http://localhost:5000/questions/search'
+```
+
+##### Sample response
+
+```json
+{
+  "success": True,
+  "questions": [
+    {
+      "id": 1,
+      "question": "This is a question",
+      "answer": "This is an answer",
+      "difficulty": 5,
+      "category": 5
+    }
+  ],
+  "total_questions": 100,
+  "current_category": "Entertainment"
+}
+```
+
+### Retrieve questions by category
+#### `GET '/categories/${id}/questions'`
+
+- Fetches questions for a cateogry specified by id request argument
+- Request Arguments: `id` - integer
+- Returns: A boolean success, an object with questions for the specified category, total questions, and current category string
+
+##### Sample request
+
+```json
+curl 'http://127.0.0.1:5000/categories/2/questions'
+```
+
+##### Sample response
+
+```json
+{
+  "success": True,
+  "questions": [
+    {
+      "id": 1,
+      "question": "This is a question",
+      "answer": "This is an answer",
+      "difficulty": 5,
+      "category": 4
+    }
+  ],
+  "total_questions": 100,
+  "current_category": "History"
+}
+```
+
+---
+
+### Play quiz
+#### `POST '/quizzes'`
+
+- Sends a post request in order to get the next question
+- Returns: a boolean success and a single new question object
+
+##### Sample request
+
+```json
+curl -X POST \
+  -h "Content-Type: application/json" \
+  -d '{
+    "previous_questions": [1, 4, 20, 15], \
+    "quiz_category": { \
+        "type": "Science", \
+        "id": 1 \
+    } \
+  }' \
+  'http://localhost:5000/quizzes'
+```
+
+##### Sample response
+
+```json
+{
+  "success": True,
+  "question": {
+    "id": 1,
+    "question": "This is a question",
+    "answer": "This is an answer",
+    "difficulty": 5,
+    "category": 1
+  }
+}
+```
+
+---
 
 ## Testing
 
 Write at least one test for the success and at least one error behavior of each endpoint using the unittest library.
 
-To deploy the tests, run
+To deploy the tests, run:
 
 ```bash
 dropdb trivia_test

@@ -1,6 +1,7 @@
 import os
 import unittest
 import json
+import subprocess
 from flask_sqlalchemy import SQLAlchemy
 
 from flaskr import create_app
@@ -8,33 +9,182 @@ from models import setup_db, Question, Category
 
 
 class TriviaTestCase(unittest.TestCase):
-    """This class represents the trivia test case"""
-
     def setUp(self):
-        """Define test variables and initialize app."""
         self.app = create_app()
         self.client = self.app.test_client
         self.database_name = "trivia_test"
-        self.database_path = "postgres://{}/{}".format('localhost:5432', self.database_name)
+        self.database_path = "postgres://{}/{}".format(
+            'localhost:5432', self.database_name
+        )
         setup_db(self.app, self.database_path)
 
-        # binds the app to the current context
+        self.new_question = {
+            "question": "fooQuestion",
+            "answer": "fooAnswer",
+            "difficulty": 1,
+            "category": 1
+        }
+
+        self.search = {
+            "searchTerm": "the"
+        }
+
+        self.quiz_body = {
+            "previous_questions": [],
+            "quiz_category": {
+                "type": "Science",
+                "id": 1
+            }
+        }
+
         with self.app.app_context():
             self.db = SQLAlchemy()
             self.db.init_app(self.app)
-            # create all tables
             self.db.create_all()
-    
+
     def tearDown(self):
-        """Executed after reach test"""
         pass
 
-    """
-    TODO
-    Write at least one test for each test for successful operation and for expected errors.
-    """
+    def test_retrieve_categories(self):
+        res = self.client().get("/categories")
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 200)  # type: ignore
+        self.assertTrue(data["success"])
+        self.assertTrue(data["categories"])
+        self.assertTrue(len(data["categories"]))
+
+    def test_405_for_post_categories(self):
+        res = self.client().post("categories")
+
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 405)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "method not allowed")
+
+    def test_retrieve_questions(self):
+        res = self.client().get("/questions")
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 200)  # type: ignore
+        self.assertTrue(data["success"])
+        self.assertTrue(data["categories"])
+        self.assertEqual(data["current_category"], 0)
+        self.assertTrue(data["questions"])
+        self.assertTrue(len(data["questions"]))
+        self.assertTrue(data["total_questions"])
+
+    def test_404_retrieve_question_beyond_valid_page(self):
+        res = self.client().get("/questions?page=1000")
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 404)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "resource not found")
+
+    def test_delete_question(self):
+        res = self.client().delete("/questions/5")
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 200)  # type: ignore
+        self.assertTrue(data["success"])
+
+    def test_404_delete_question_that_doesnt_exist(self):
+        res = self.client().delete("/questions/7000")
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 404)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "resource not found")
+
+    def test_create_question(self):
+        res = self.client().post("/questions", json=self.new_question)
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 200)  # type: ignore
+        self.assertTrue(data["success"])
+
+    def test_405_for_create_question(self):
+        res = self.client().post("/questions/7", json=self.new_question)
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 405)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "method not allowed")
+
+    def test_search_questions(self):
+        res = self.client().post("/questions/search", json=self.search)
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 200)  # type: ignore
+        self.assertTrue(data["success"])
+        self.assertTrue(data["questions"])
+        self.assertTrue(len(data["questions"]))
+        self.assertTrue(data["total_questions"])
+        self.assertEqual(data["current_category"], 0)
+
+    def test_405_for_search_questions_with_wrong_method(self):
+        res = self.client().get("/questions/search", json=self.search)
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 405)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "method not allowed")
+
+    def test_404_for_search_questions_with_wrong_path(self):
+        res = self.client().post("/questions/search/7", json=self.search)
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 404)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "resource not found")
+
+    def test_404_for_search_questions(self):
+        res = self.client().post(
+            "/questions/search",
+            json={"searchTerm": "qwertyuiop"}
+        )
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 404)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "resource not found")
+
+    def test_retrieve_questions_by_category(self):
+        res = self.client().get("/categories/1/questions")
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 200)  # type: ignore
+        self.assertTrue(data["success"])
+        self.assertTrue(data["questions"])
+        self.assertTrue(data["total_questions"])
+        self.assertEqual(data["current_category"], 1)
+
+    def test_404_retrieve_questions_by_category(self):
+        res = self.client().get("/categories/1000/questions")
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 404)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "resource not found")
+
+    def test_play_quiz(self):
+        res = self.client().post("/quizzes", json=self.quiz_body)
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 200)  # type: ignore
+        self.assertTrue(data["success"])
+        self.assertTrue(data["question"])
+
+    def test_405_play_quiz(self):
+        res = self.client().get("/quizzes", json=self.quiz_body)
+        data = json.loads(res.data)  # type: ignore
+
+        self.assertEqual(res.status_code, 405)  # type: ignore
+        self.assertFalse(data["success"])
+        self.assertEqual(data["message"], "method not allowed")
 
 
-# Make the tests conveniently executable
 if __name__ == "__main__":
     unittest.main()
