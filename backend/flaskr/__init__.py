@@ -82,6 +82,7 @@ def create_app(test_config=None):
 
             return jsonify({
                 "success": True
+                # "id": question_id
             })
 
         except SQLAlchemyError as e:
@@ -171,32 +172,32 @@ def create_app(test_config=None):
 
         if quiz_category:
             category_id = quiz_category["id"]
-        else:
-            abort(404)
 
-        if category_id == 0:
-            selection = Question.query.all()
-        else:
-            selection = Question.query.filter(
-                Question.category == category_id
-            ).all()
+            if category_id == 0:
+                selection = Question.query.all()
+            else:
+                selection = Question.query.filter(
+                    Question.category == category_id
+                ).all()
 
-        total_questions = len(selection)
-        if total_questions == len(previous_questions):
-            return jsonify({
-                "success": True
-            })
+            total_questions = len(selection)
+            if total_questions == len(previous_questions):
+                return jsonify({
+                    "success": True
+                })
 
-        random_question = random.choice(selection)
-
-        while random_question.format()["id"] in previous_questions:
-            selection.remove(random_question)
             random_question = random.choice(selection)
 
-        return jsonify({
-            "success": True,
-            "question": random_question.format()
-        })
+            while random_question.format()["id"] in previous_questions:
+                selection.remove(random_question)
+                random_question = random.choice(selection)
+
+            return jsonify({
+                "success": True,
+                "question": random_question.format()
+            })
+        else:
+            abort(404)
 
     @app.errorhandler(400)
     def bad_request(error):
